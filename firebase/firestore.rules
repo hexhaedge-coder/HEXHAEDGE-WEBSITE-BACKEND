@@ -1,0 +1,289 @@
+rules_version = '2';
+
+// HexhaEdge Firestore rules.
+//
+// Principles
+//  1. Deny by default. Every collection is listed; anything not listed is closed.
+//  2. Everything that changes a member's standing (plans, records, rulings,
+//     payments, bookings, roles, settings, audit) is written ONLY by Cloud
+//     Functions, which check the rules engine and write the audit log. Clients
+//     cannot write those collections at all.
+//  3. A member reads only their own records (M-1). A trainer only their
+//     trainees, a reviewer only Chamber data, a practitioner only MindSpace (N-3).
+//  4. Staff need a role claim AND a completed second factor (two-step login).
+//  5. MindSpace notes are readable only by the practitioner who wrote them and
+//     the admin (T-4).
+//  6. The audit log is append-only from the server; members read their own entries.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Who is asking ----------
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function claims() { return request.auth.token; }
+    function twoStep() {
+      return claims().get('firebase', {}).get('sign_in_second_factor', null) != null;
+    }
+    function hasRole(r) { return signedIn() && claims().get(r, false) == true && twoStep(); }
+    function isAdmin() { return hasRole('admin'); }
+    function isReviewer() { return hasRole('reviewer') || isAdmin(); }
+    function isTrainer() { return hasRole('trainer') || isAdmin(); }
+    function isPractitioner() { return hasRole('practitioner') || isAdmin(); }
+    function isStaff() { return isReviewer() || isTrainer() || isPractitioner(); }
+
+    function ownsDoc() { return signedIn() && resource.data.uid == me(); }
+    function membershipPath(memberUid, service) {
+      return /databases/$(database)/documents/memberships/$(memberUid + '_' + service);
+    }
+    function trainerOf(memberUid) {
+      return isAdmin() || (hasRole('trainer')
+        && exists(membershipPath(memberUid, 'build'))
+        && get(membershipPath(memberUid, 'build')).data.get('trainerUid', '') == me());
+    }
+
+    // ---------- Closed by default ----------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ---------- Profiles ----------
+    function validProfileUpdate() {
+      let d = request.resource.data;
+      let changed = d.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['name', 'timezone', 'contactChannel', 'background', 'updatedAt'])
+        && d.name is string && d.name.size() >= 2 && d.name.size() <= 80
+        && d.timezone in ['Africa/Nairobi', 'Africa/Kampala', 'Africa/Dar_es_Salaam', 'Africa/Kigali', 'Africa/Lagos', 'Africa/Johannesburg', 'Europe/London', 'Asia/Dubai', 'UTC']
+        && d.contactChannel in ['sms', 'whatsapp', 'email']
+        && d.background is map
+        && d.background.keys().hasOnly(['instruments', 'years', 'accounts'])
+        && d.background.instruments is list && d.background.instruments.size() <= 20
+        && d.background.years is int && d.background.years >= 0 && d.background.years <= 60
+        && d.background.accounts is list && d.background.accounts.size() <= 3
+        && d.updatedAt == request.time;
+    }
+
+    match /users/{userId} {
+      // Members read themselves. Staff read only the people their role serves.
+      allow get: if signedIn() && (
+        userId == me()
+        || isAdmin()
+        || isPractitioner()
+        || (isReviewer() && exists(membershipPath(userId, 'chamber')))
+        || trainerOf(userId)
+      );
+      allow list: if isAdmin() || isReviewer() || isPractitioner();
+      // Phone, email, roles and the MindSpace flag can never be changed from the app.
+      allow update: if signedIn() && userId == me() && validProfileUpdate();
+      allow create, delete: if false;
+
+      match /consents/{purpose} {
+        allow read: if signedIn() && (userId == me() || isAdmin());
+        allow write: if false;
+      }
+      match /consentEvents/{eventId} {
+        allow read: if signedIn() && (userId == me() || isAdmin());
+        allow write: if false;
+      }
+    }
+
+    // ---------- Memberships and applications ----------
+    match /memberships/{membershipId} {
+      allow read: if ownsDoc()
+        || isAdmin()
+        || (isReviewer() && resource.data.service == 'chamber')
+        || (isPractitioner() && resource.data.service in ['mindspace', 'chamber'])
+        || (hasRole('trainer') && resource.data.service == 'build' && resource.data.get('trainerUid', '') == me());
+      allow write: if false;
+    }
+
+    match /applications/{appId} {
+      allow read: if ownsDoc() || isAdmin()
+        || (hasRole('trainer') && resource.data.service == 'build');
+      allow write: if false;
+    }
+
+    // ---------- The Chamber ----------
+    match /plans/{planId} {
+      allow read: if ownsDoc() || isReviewer();
+      allow write: if false;
+    }
+    match /obligations/{obligationId} {
+      allow read: if ownsDoc() || isReviewer();
+      allow write: if false;
+    }
+    match /submissions/{submissionId} {
+      allow read: if ownsDoc() || isReviewer();
+      allow write: if false;
+    }
+    match /violations/{violationId} {
+      allow read: if ownsDoc() || isReviewer();
+      allow write: if false;
+    }
+    match /timeouts/{timeoutId} {
+      allow read: if ownsDoc() || isReviewer();
+      allow write: if false;
+    }
+    match /suspensions/{suspensionId} {
+      allow read: if ownsDoc() || isReviewer() || isPractitioner();
+      allow write: if false;
+    }
+    match /pauses/{pauseId} {
+      allow read: if ownsDoc() || isReviewer() || isPractitioner();
+      allow write: if false;
+    }
+    match /unlockRequests/{requestId} {
+      allow read: if ownsDoc() || isReviewer();
+      allow write: if false;
+    }
+    match /evidenceRequests/{requestId} {
+      allow read: if ownsDoc() || isReviewer();
+      allow write: if false;
+    }
+    match /weeklyReports/{reportId} {
+      allow read: if ownsDoc() || isReviewer();
+      allow write: if false;
+    }
+    match /cases/{caseId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ---------- Slots and bookings ----------
+    match /slots/{slotId} {
+      // Members see slots so they can book; booking itself is a server call.
+      allow read: if signedIn();
+      allow write: if false;
+    }
+    match /bookings/{bookingId} {
+      allow read: if ownsDoc()
+        || isAdmin()
+        || (signedIn() && resource.data.staffUid == me() && isStaff())
+        || (isReviewer() && resource.data.service == 'chamber');
+      allow write: if false;
+    }
+
+    // ---------- MindSpace (sensitive, T-4, T-5) ----------
+    match /mindspaceNotes/{noteId} {
+      allow read: if isAdmin() || (hasRole('practitioner') && resource.data.practitionerUid == me());
+      allow write: if false;
+    }
+    match /mindspaceShared/{memberUid} {
+      // The Chamber sees only what the member allowed: attended or not, cleared or not.
+      allow read: if (signedIn() && memberUid == me())
+        || isPractitioner()
+        || (isReviewer()
+            && exists(/databases/$(database)/documents/users/$(memberUid)/consents/share_chamber_mindspace)
+            && get(/databases/$(database)/documents/users/$(memberUid)/consents/share_chamber_mindspace).data.given == true);
+      allow write: if false;
+    }
+
+    // ---------- Build Your Edge ----------
+    match /trainers/{trainerUid} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+    match /trainingSessions/{sessionId} {
+      allow read: if (signedIn() && me() in resource.data.get('participants', []))
+        || isAdmin()
+        || (hasRole('trainer') && resource.data.trainerUid == me());
+      allow write: if false;
+    }
+    match /progressChecks/{checkId} {
+      allow read: if ownsDoc() || isAdmin() || (hasRole('trainer') && resource.data.trainerUid == me());
+      allow write: if false;
+    }
+    match /startingNotes/{memberUid} {
+      allow read: if (signedIn() && memberUid == me()) || trainerOf(memberUid);
+      allow write: if false;
+    }
+
+    // ---------- HexhaEdge Capital ----------
+    match /invitations/{invitationId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ---------- Billing ----------
+    match /invoices/{invoiceId} {
+      allow read: if ownsDoc() || isAdmin();
+      allow write: if false;
+    }
+    match /payments/{paymentId} {
+      allow read: if ownsDoc() || isAdmin();
+      allow write: if false;
+    }
+
+    // ---------- Notifications: members may only mark their own as read ----------
+    match /notifications/{notificationId} {
+      allow read: if ownsDoc();
+      allow update: if ownsDoc()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read == true;
+      allow create, delete: if false;
+    }
+
+    // ---------- Messages between a member and HexhaEdge ----------
+    match /threads/{threadUid}/messages/{messageId} {
+      allow read: if signedIn() && (threadUid == me() || isAdmin() || isReviewer());
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['from', 'text', 'at', 'byStaff'])
+        && request.resource.data.from == me()
+        && request.resource.data.text is string
+        && request.resource.data.text.size() >= 1
+        && request.resource.data.text.size() <= 2000
+        && request.resource.data.at == request.time
+        && (
+          (threadUid == me() && request.resource.data.byStaff == false)
+          || ((isAdmin() || isReviewer()) && request.resource.data.byStaff == true)
+        );
+      allow update, delete: if false;
+    }
+    // Staff inbox: newest messages across threads.
+    match /{prefix=**}/messages/{messageId} {
+      allow read: if isAdmin() || isReviewer();
+    }
+
+    // ---------- Settings: readable, changed only through the admin console ----------
+    match /settings/{key} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+    match /settingsHistory/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /weightTableVersions/{version} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+    match /staff/{staffUid} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+    match /requests/{requestId} {
+      allow read: if ownsDoc() || isAdmin();
+      allow write: if false;
+    }
+
+    // ---------- Audit log (P-16): never edited ----------
+    match /audit/{entryId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.subjectUid == me());
+      allow write: if false;
+    }
+
+    // ---------- System ----------
+    match /system/outage {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+    match /system/{doc} {
+      allow read: if isAdmin();
+      allow write: if false;
+      match /events/{eventId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+  }
+}

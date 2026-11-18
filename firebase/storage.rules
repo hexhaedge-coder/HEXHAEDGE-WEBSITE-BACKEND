@@ -1,0 +1,49 @@
+rules_version = '2';
+
+// HexhaEdge Storage rules.
+// Clips and dashboard evidence are private records. Nobody reads them directly:
+// playback is through short-lived signed links made by the server (getClipUrl),
+// which checks the role and writes an audit entry. Files are write-once.
+// Profile images live on Cloudinary, not here.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // SOD/EOD screen recordings. The upload must match an open upload ticket
+    // created by the server (beginUpload) for this member, day and clip kind.
+    match /clips/{memberUid}/{obligationId}/{fileName} {
+      allow create: if request.auth != null
+        && request.auth.uid == memberUid
+        && request.resource.size > 10 * 1024
+        && request.resource.size < 60 * 1024 * 1024
+        && request.resource.contentType.matches('video/.*')
+        && fileName.matches('^(sod|eod)-[A-Za-z0-9]{15,40}$')
+        && firestore.exists(/databases/(default)/documents/uploads/$(fileName.split('-')[1]))
+        && firestore.get(/databases/(default)/documents/uploads/$(fileName.split('-')[1])).data.uid == memberUid
+        && firestore.get(/databases/(default)/documents/uploads/$(fileName.split('-')[1])).data.obligationId == obligationId
+        && firestore.get(/databases/(default)/documents/uploads/$(fileName.split('-')[1])).data.kind == fileName.split('-')[0]
+        && firestore.get(/databases/(default)/documents/uploads/$(fileName.split('-')[1])).data.used == false;
+      allow read, update, delete: if false;
+    }
+
+    // Balance and trade history from a firm's or broker's dashboard (W-3).
+    // Only for an open request addressed to this member. Never a login or password.
+    match /evidence/{memberUid}/{requestId}/{fileName} {
+      allow create: if request.auth != null
+        && request.auth.uid == memberUid
+        && request.resource.size < 20 * 1024 * 1024
+        && (request.resource.contentType.matches('image/(png|jpeg|webp)')
+            || request.resource.contentType == 'application/pdf'
+            || request.resource.contentType == 'text/csv'
+            || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        && fileName.matches('^[A-Za-z0-9._-]{1,80}$')
+        && firestore.get(/databases/(default)/documents/evidenceRequests/$(requestId)).data.uid == memberUid
+        && firestore.get(/databases/(default)/documents/evidenceRequests/$(requestId)).data.status == 'open';
+      allow read, update, delete: if false;
+    }
+  }
+}

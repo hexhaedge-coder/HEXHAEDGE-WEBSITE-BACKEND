@@ -1,0 +1,27 @@
+{
+  "name": "hexhaedge-api",
+  "private": true,
+  "description": "HexhaEdge platform backend: API, M-Pesa webhooks and scheduled jobs (Render), on Firebase Firestore, Auth and Storage.",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --env-file=.env src/server.js",
+    "cron": "node src/cron.js",
+    "job": "node --env-file=.env src/cron.js run",
+    "test": "node --test test/*.test.js",
+    "check": "node --check src/*.js && node --test test/*.test.js",
+    "bootstrap-admin": "node scripts/bootstrap-admin.js",
+    "deploy:rules": "cd firebase && firebase deploy --only firestore:rules,firestore:indexes,storage",
+    "test:rules": "cd firebase && firebase emulators:exec --only firestore --project hexhaedge-rules-test \"node --test ../test-rules/\""
+  },
+  "dependencies": {
+    "firebase-admin": "^13.10.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "firebase": "^12.11.0"
+  }
+}
