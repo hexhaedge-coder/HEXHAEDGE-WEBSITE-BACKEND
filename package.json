@@ -14,6 +14,7 @@
     "test": "node --test test/*.test.js",
     "check": "node --check src/*.js && node --test test/*.test.js",
     "bootstrap-admin": "node scripts/bootstrap-admin.js",
+    "rules": "node scripts/deploy-rules.js",
     "deploy:rules": "cd firebase && firebase deploy --only firestore:rules,firestore:indexes,storage",
     "test:rules": "cd firebase && firebase emulators:exec --only firestore --project hexhaedge-rules-test \"node --test ../test-rules/\""
   },

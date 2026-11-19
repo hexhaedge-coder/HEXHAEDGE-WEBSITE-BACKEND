@@ -34,8 +34,12 @@ render.yaml        Render Blueprint: API + cron job + shared settings
 1. Create the project on the **Blaze** plan (no-cost allowances still apply) with Firestore and Storage in
    **europe-west1** (Belgium; this project already uses it, and the location cannot be changed). Enable **Phone** and **Email/Password** sign-in, upgrade to **Identity Platform** and turn
    on **SMS multi-factor** (staff need it). Add the website domain to Authorized domains.
-2. Deploy the rules: `npm install -g firebase-tools && firebase login`, copy `firebase/.firebaserc.example` to
-   `firebase/.firebaserc` with your project id, then `npm run deploy:rules`.
+2. Deploy the rules (after Render is set up): Render → **hexhaedge-api** → **Shell** → `node scripts/deploy-rules.js`.
+   It publishes the Firestore and Storage rules, creates the indexes and turns on TTL clean-up. Safe to run again.
+   (With the Firebase CLI instead: copy `firebase/.firebaserc.example` to `firebase/.firebaserc`, then `npm run deploy:rules`.)
+   **Storage rules permission (once):** Google Cloud → IAM → **Grant access** → principal
+   `service-<PROJECT_NUMBER>@gcp-sa-firebasestorage.iam.gserviceaccount.com` → role
+   **Firebase Rules Firestore Service Agent**. This lets the Storage rules check upload tickets in Firestore.
 3. Project settings → Service accounts → **Generate new private key**. Keep the file off GitHub. Base64 it on one
    line (`base64 -w0 key.json`, or on Windows `[Convert]::ToBase64String([IO.File]::ReadAllBytes("key.json"))`).
 4. Signed clip links: in Google Cloud → IAM, the service account needs **Service Account Token Creator**.
