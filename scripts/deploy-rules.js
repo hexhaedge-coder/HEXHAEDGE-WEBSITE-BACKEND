@@ -37,9 +37,29 @@ async function main() {
   const project = sa.project_id;
   console.log(`Project: ${project}`);
 
-  // 1. Security rules
+  // 1. Security rules: check both with Google's compiler first and print any problem with its line.
   const firestoreRules = fs.readFileSync(path.join(ROOT, "firestore.rules"), "utf8");
   const storageRules = fs.readFileSync(path.join(ROOT, "storage.rules"), "utf8");
+  const { access_token: rulesToken } = await credential.getAccessToken();
+  let bad = false;
+  for (const [name, content] of [["firestore.rules", firestoreRules], ["storage.rules", storageRules]]) {
+    const res = await fetch(`https://firebaserules.googleapis.com/v1/projects/${project}:test`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${rulesToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ source: { files: [{ name, content }] } }),
+    });
+    const json = await res.json().catch(() => ({}));
+    const issues = (json.issues || []).filter((i) => i.severity === "ERROR");
+    if (!res.ok && !issues.length) console.log(`? Could not check ${name}: ${res.status} ${JSON.stringify(json).slice(0, 300)}`);
+    for (const i of issues) {
+      bad = true;
+      const pos = i.sourcePosition || {};
+      const line = content.split("\n")[(pos.line || 1) - 1] || "";
+      console.log(`✗ ${name} line ${pos.line}:${pos.column}  ${i.description}\n    ${line.trim()}`);
+    }
+    if (!issues.length && res.ok) console.log(`✓ ${name} compiles`);
+  }
+  if (bad) throw new Error("Rules did not compile. Nothing was published. Send the lines above to fix.");
   await admin.securityRules().releaseFirestoreRulesetFromSource(firestoreRules);
   console.log("✓ Firestore rules published");
   await admin.securityRules().releaseStorageRulesetFromSource(storageRules, bucket);

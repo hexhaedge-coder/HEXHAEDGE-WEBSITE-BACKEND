@@ -33,8 +33,8 @@ service cloud.firestore {
     function isStaff() { return isReviewer() || isTrainer() || isPractitioner(); }
 
     function ownsDoc() { return signedIn() && resource.data.uid == me(); }
-    function membershipPath(memberUid, service) {
-      return /databases/$(database)/documents/memberships/$(memberUid + '_' + service);
+    function membershipPath(memberUid, door) {
+      return /databases/$(database)/documents/memberships/$(memberUid + '_' + door);
     }
     function trainerOf(memberUid) {
       return isAdmin() || (hasRole('trainer')
