@@ -13,8 +13,10 @@
 const REGION = process.env.FIREBASE_REGION || "africa-south1";
 const TZ = "Africa/Nairobi";
 
-const env = (name, fallback = "") => ({ name, value: () => (process.env[name] !== undefined && process.env[name] !== "" ? process.env[name] : fallback) });
-const flag = (name, fallback) => ({ name, value: () => (process.env[name] === undefined || process.env[name] === "" ? fallback : process.env[name] === "true") });
+// An empty value, or the word "unset", means "not set": the default applies.
+const isSet = (v) => v !== undefined && v !== "" && v.trim().toLowerCase() !== "unset";
+const env = (name, fallback = "") => ({ name, value: () => (isSet(process.env[name]) ? process.env[name].trim() : fallback) });
+const flag = (name, fallback) => ({ name, value: () => (isSet(process.env[name]) ? process.env[name].trim() === "true" : fallback) });
 
 const params = {
   APP_URL: env("APP_URL", "https://hexhaedge.pages.dev"),
