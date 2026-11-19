@@ -32,7 +32,7 @@ render.yaml        Render Blueprint: API + cron job + shared settings
 
 ### 1. Firebase
 1. Create the project on the **Blaze** plan (no-cost allowances still apply) with Firestore and Storage in
-   **africa-south1**. Enable **Phone** and **Email/Password** sign-in, upgrade to **Identity Platform** and turn
+   **europe-west1** (Belgium; this project already uses it, and the location cannot be changed). Enable **Phone** and **Email/Password** sign-in, upgrade to **Identity Platform** and turn
    on **SMS multi-factor** (staff need it). Add the website domain to Authorized domains.
 2. Deploy the rules: `npm install -g firebase-tools && firebase login`, copy `firebase/.firebaserc.example` to
    `firebase/.firebaserc` with your project id, then `npm run deploy:rules`.

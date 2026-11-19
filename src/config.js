@@ -10,7 +10,7 @@
  */
 
 // Firestore and Storage location (chosen when the Firebase project is created).
-const REGION = process.env.FIREBASE_REGION || "africa-south1";
+const REGION = process.env.FIREBASE_REGION || "europe-west1"; // Belgium, where Firestore and Storage were created
 const TZ = "Africa/Nairobi";
 
 // An empty value, or the word "unset", means "not set": the default applies.
