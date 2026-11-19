@@ -10,13 +10,13 @@ envVarGroups:
       - key: FIREBASE_SERVICE_ACCOUNT_BASE64
         sync: false
       - key: FIREBASE_STORAGE_BUCKET
-        sync: false
+        value: hexhaedge-website.firebasestorage.app
       - key: APP_URL
-        sync: false
+        value: https://hexhaedge-website.hexhaedge.workers.dev
       - key: PUBLIC_API_URL
-        sync: false
+        value: https://hexhaedge-api.onrender.com   # change if Render gives the service a different address
       - key: ALLOWED_ORIGINS
-        sync: false
+        value: https://hexhaedge-website.hexhaedge.workers.dev
       - key: REQUIRE_STAFF_MFA
         value: "true"
       - key: ENFORCE_APP_CHECK
@@ -54,7 +54,7 @@ envVarGroups:
       - key: EMAIL_FROM
         sync: false
       - key: CLOUDINARY_CLOUD_NAME
-        sync: false
+        value: btzphyp2
       - key: CLOUDINARY_API_KEY
         sync: false
       - key: CLOUDINARY_API_SECRET
