@@ -91,15 +91,15 @@ service cloud.firestore {
     match /memberships/{membershipId} {
       allow read: if ownsDoc()
         || isAdmin()
-        || (isReviewer() && resource.data.service == 'chamber')
-        || (isPractitioner() && resource.data.service in ['mindspace', 'chamber'])
-        || (hasRole('trainer') && resource.data.service == 'build' && resource.data.get('trainerUid', '') == me());
+        || (isReviewer() && resource.data['service'] == 'chamber')
+        || (isPractitioner() && resource.data['service'] in ['mindspace', 'chamber'])
+        || (hasRole('trainer') && resource.data['service'] == 'build' && resource.data.get('trainerUid', '') == me());
       allow write: if false;
     }
 
     match /applications/{appId} {
       allow read: if ownsDoc() || isAdmin()
-        || (hasRole('trainer') && resource.data.service == 'build');
+        || (hasRole('trainer') && resource.data['service'] == 'build');
       allow write: if false;
     }
 
@@ -159,7 +159,7 @@ service cloud.firestore {
       allow read: if ownsDoc()
         || isAdmin()
         || (signedIn() && resource.data.staffUid == me() && isStaff())
-        || (isReviewer() && resource.data.service == 'chamber');
+        || (isReviewer() && resource.data['service'] == 'chamber');
       allow write: if false;
     }
 
