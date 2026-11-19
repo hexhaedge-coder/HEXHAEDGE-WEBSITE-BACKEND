@@ -19,7 +19,7 @@ const env = (name, fallback = "") => ({ name, value: () => (isSet(process.env[na
 const flag = (name, fallback) => ({ name, value: () => (isSet(process.env[name]) ? process.env[name].trim() === "true" : fallback) });
 
 const params = {
-  APP_URL: env("APP_URL", "https://hexhaedge.pages.dev"),
+  APP_URL: env("APP_URL", "https://hexhaedge.com"),
   REQUIRE_STAFF_MFA: flag("REQUIRE_STAFF_MFA", true),
   ENFORCE_APP_CHECK: flag("ENFORCE_APP_CHECK", false),
 
@@ -31,7 +31,7 @@ const params = {
   AT_USERNAME: env("AT_USERNAME", "sandbox"),
   AT_SENDER_ID: env("AT_SENDER_ID", ""),
   WHATSAPP_PHONE_ID: env("WHATSAPP_PHONE_ID", ""),
-  EMAIL_FROM: env("EMAIL_FROM", "HexhaEdge <no-reply@example.com>"),
+  EMAIL_FROM: env("EMAIL_FROM", "HexhaEdge <no-reply@hexhaedge.com>"),
   CLOUDINARY_CLOUD_NAME: env("CLOUDINARY_CLOUD_NAME", ""),
   CLOUDINARY_API_KEY: env("CLOUDINARY_API_KEY", ""),
   ADMIN_ALERT_PHONE: env("ADMIN_ALERT_PHONE", ""),

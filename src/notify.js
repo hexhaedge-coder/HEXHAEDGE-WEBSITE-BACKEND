@@ -16,7 +16,7 @@ const URGENT_EVENTS = new Set([
 const EMAIL_TOO = new Set(["timeout_issued", "suspension", "weekly_report", "invitation", "disqualified", "payment_received"]);
 
 function appUrl(path = "/app/") {
-  let base = "https://hexhaedge.pages.dev";
+  let base = "https://hexhaedge.com";
   try { base = C.params.APP_URL.value() || base; } catch (e) { /* default */ }
   return base.replace(/\/$/, "") + path;
 }
