@@ -1,20 +1,25 @@
 # Render Blueprint: Render → New → Blueprint → pick this repository.
 # Creates the API (web service) and the scheduled-jobs runner (cron job), sharing one set of settings.
-# Frankfurt is the Render region closest to Kenya. Values marked sync: false are asked for in the dashboard.
+# Frankfurt is the Render region closest to Kenya.
+#
+# Secrets are NOT in this file (Render does not allow them in an environment group here).
+# After the Blueprint is created, add them once in Render → Environment Groups → hexhaedge-shared:
+#   FIREBASE_SERVICE_ACCOUNT_BASE64, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET,
+#   ADMIN_ALERT_EMAIL, ADMIN_ALERT_PHONE, and later the M-Pesa, SMS, WhatsApp and email keys
+#   (full list in .env.example). Render keeps values added in the dashboard.
 
 envVarGroups:
   - name: hexhaedge-shared
     envVars:
       - key: NODE_VERSION
         value: "22"
-      - key: FIREBASE_SERVICE_ACCOUNT_BASE64
-        sync: false
       - key: FIREBASE_STORAGE_BUCKET
         value: hexhaedge-website.firebasestorage.app
       - key: APP_URL
         value: https://hexhaedge-website.hexhaedge.workers.dev
+      # Change PUBLIC_API_URL if Render gives the API a different address.
       - key: PUBLIC_API_URL
-        value: https://hexhaedge-api.onrender.com   # change if Render gives the service a different address
+        value: https://hexhaedge-api.onrender.com
       - key: ALLOWED_ORIGINS
         value: https://hexhaedge-website.hexhaedge.workers.dev
       - key: REQUIRE_STAFF_MFA
@@ -29,40 +34,12 @@ envVarGroups:
         value: "174379"
       - key: MPESA_TILL_OR_PAYBILL
         value: paybill
-      - key: MPESA_PARTY_B
-        sync: false
-      - key: MPESA_CONSUMER_KEY
-        sync: false
-      - key: MPESA_CONSUMER_SECRET
-        sync: false
-      - key: MPESA_PASSKEY
-        sync: false
       - key: MPESA_CALLBACK_TOKEN
         generateValue: true
       - key: AT_USERNAME
         value: sandbox
-      - key: AT_API_KEY
-        sync: false
-      - key: AT_SENDER_ID
-        sync: false
-      - key: WHATSAPP_PHONE_ID
-        sync: false
-      - key: WHATSAPP_TOKEN
-        sync: false
-      - key: RESEND_API_KEY
-        sync: false
-      - key: EMAIL_FROM
-        sync: false
       - key: CLOUDINARY_CLOUD_NAME
         value: btzphyp2
-      - key: CLOUDINARY_API_KEY
-        sync: false
-      - key: CLOUDINARY_API_SECRET
-        sync: false
-      - key: ADMIN_ALERT_PHONE
-        sync: false
-      - key: ADMIN_ALERT_EMAIL
-        sync: false
 
 services:
   - type: web
